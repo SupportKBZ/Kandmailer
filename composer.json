@@ -1,0 +1,46 @@
+{
+  "name": "supportkbz/kandmailer",
+  "description": "Client PHP pour l'API KandMailer (emails marketing et transactionnels).",
+  "type": "library",
+  "license": "MIT",
+  "keywords": [
+    "kandmailer",
+    "email",
+    "transactionnel",
+    "marketing",
+    "sdk"
+  ],
+  "require": {
+    "php": "^8.4"
+  },
+  "require-dev": {
+    "pestphp/pest": "^2.0",
+    "symfony/var-dumper": "^7.0"
+  },
+  "authors": [
+    {
+      "name": "Clément ISELIN",
+      "email": "ciselin@kandbaz.com"
+    }
+  ],
+  "autoload": {
+    "psr-4": {
+      "KandMailer\\": "src/"
+    }
+  },
+  "autoload-dev": {
+    "psr-4": {
+      "KandMailer\\Tests\\": "tests/"
+    }
+  },
+  "scripts": {
+    "test": "pest"
+  },
+  "config": {
+    "allow-plugins": {
+      "pestphp/pest-plugin": true
+    }
+  },
+  "minimum-stability": "stable",
+  "prefer-stable": true
+}
