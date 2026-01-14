@@ -10,7 +10,7 @@ describe('Send Message', function () {
     it('Send phone invalid - client validation', function () {
         expect(fn() => $this->mailer
             ->template('sms')
-            ->toPhone('invalid')
+            ->phone('invalid')
         )->toThrow(InvalidArgumentException::class, 'Numéro de téléphone invalide: invalid');
     });
 
@@ -24,7 +24,7 @@ describe('Send Message', function () {
     it('Send phone invalid - API validation', function () {
         $this->mailer
             ->template('sms')
-            ->toPhone('12345678'); // Passe la validation client (8 chiffres) mais rejeté par l'API
+            ->phone('12345678'); // Passe la validation client (8 chiffres) mais rejeté par l'API
 
         $mockHttp = getMockHttp($this->mailer);
         $mockHttp->setResponse(['message' => 'Invalid phone format'], 422);
@@ -38,7 +38,7 @@ describe('Send Message', function () {
     it('Send phone valid', function () {
         $this->mailer
             ->template('sms')
-            ->toPhone('+33628361721');
+            ->phone('+33628361721');
 
         $mockHttp = getMockHttp($this->mailer);
         $mockHttp->setResponse(['status' => 'success'], 200);
@@ -49,10 +49,28 @@ describe('Send Message', function () {
         expect($payload['phone'])->toBe('+33628361721');
     });
 
+    it('Send multiple phone valid', function () {
+        $phones = ['+33628361721', '+33628361722'];
+        $this->mailer
+            ->template('sms')
+            ->phone($phones);
+
+        $mockHttp = getMockHttp($this->mailer);
+        $mockHttp->setResponse(['status' => 'success'], 200);
+
+        $this->mailer->send();
+        
+        $payload = $mockHttp->getLastPayload();
+        expect($payload)->toBeArray();
+        foreach ($payload as $key => $value) {
+            expect($value['phone'])->toBe($phones[$key]);
+        }
+    });
+
     it('Send a single email', function () {
         $this->mailer
             ->template('welcome')
-            ->toEmail('john@example.com')
+            ->email('john@example.com')
             ->firstName('John')
             ->lastName('Doe')
             ->option('crm', '123456');
@@ -81,8 +99,7 @@ describe('Send Message', function () {
         $emails = ['john@example.com', 'jane@example.com'];
         $this->mailer
             ->template('welcome')
-            ->toEmail($emails)
-            ->firstName('John')
+            ->email($emails)
             ->option('crm', '123456');
 
         $mockHttp = getMockHttp($this->mailer);
@@ -96,6 +113,135 @@ describe('Send Message', function () {
         $payload = $mockHttp->getLastPayload();
 
         expect($url)->toContain('/send/list');
-        expect($payload['email'])->toBe($emails);
+        expect($payload)->toBeArray();
+        foreach ($payload as $key => $value) {
+            expect($value['email'])->toBe($emails[$key]);
+            expect($value['options']['crm'])->toBe('123456');
+        }
+    });
+
+    it('Send a multiple emails with firstName and lastName', function () {
+        $emails = ['john@example.com', 'jane@example.com'];
+        $firstNames = ['John', 'Jane'];
+        $lastNames = ['Doe', 'Smith'];
+        $this->mailer
+            ->template('welcome')
+            ->email($emails)
+            ->firstName(['John', 'Jane'])
+            ->lastName(['Doe', 'Smith'])
+            ->option('crm', '123456');
+
+        $mockHttp = getMockHttp($this->mailer);
+        $mockHttp->setResponse(['status' => 'success'], 200);
+
+        $result = $this->mailer->send();
+
+        expect($result)->toBeString();
+        
+        $url = $mockHttp->getLastUrl();
+        $payload = $mockHttp->getLastPayload();
+
+        expect($url)->toContain('/send/list');
+        foreach ($payload as $key => $value) {
+            expect($value['email'])->toBe($emails[$key]);
+            expect($value['firstName'])->toBe($firstNames[$key]);
+            expect($value['lastName'])->toBe($lastNames[$key]);
+            expect($value['options']['crm'])->toBe('123456');
+        }
+    });
+
+    it('Send a multiple emails with no provided firstName and lastName', function () {
+        $emails = ['john@example.com', 'jane@example.com'];
+        $firstNames = ['John', 'Jane'];
+        $lastNames = ['Doe', null];
+        $this->mailer
+            ->template('welcome')
+            ->email($emails)
+            ->firstName($firstNames)
+            ->lastName($lastNames)
+            ->option('crm', '123456');
+
+        $mockHttp = getMockHttp($this->mailer);
+        $mockHttp->setResponse(['status' => 'success'], 200);
+
+        $result = $this->mailer->send();
+
+        expect($result)->toBeString();
+        
+        $url = $mockHttp->getLastUrl();
+        $payload = $mockHttp->getLastPayload();
+
+        expect($url)->toContain('/send/list');
+        expect($payload)->toBeArray();
+        foreach ($payload as $key => $value) {
+            expect($value['email'])->toBe($emails[$key]);
+            expect($value['firstName'])->toBe($firstNames[$key]);
+            if ($key == 1) {
+                expect($value)->not->toHaveKey('lastName');
+            } else {
+                expect($value['lastName'])->toBe($lastNames[$key]);
+            }   
+            expect($value['options']['crm'])->toBe('123456');
+        }
+    });
+
+    it('Send a multiple emails with email and phone is array', function () {
+        $emails = ['john@example.com', 'jane@example.com'];
+        $phones = ['+33628361721', '+33628361722'];
+        $this->mailer
+            ->template('welcome')
+            ->email($emails)
+            ->phone($phones)
+            ->option('crm', '123456');
+
+        $mockHttp = getMockHttp($this->mailer);
+        $mockHttp->setResponse(['status' => 'success'], 200);
+
+        $result = $this->mailer->send();
+
+        expect($result)->toBeString();
+        
+        $url = $mockHttp->getLastUrl();
+        $payload = $mockHttp->getLastPayload();
+
+        expect($url)->toContain('/send/list');
+        expect($payload)->toBeArray();
+        foreach ($payload as $key => $value) {
+            expect($value['email'])->toBe($emails[$key]);
+            expect($value['phone'])->toBe($phones[$key]);
+            expect($value['options']['crm'])->toBe('123456');
+        }
+    });
+
+    it('Send a multiple emails with email and phone is array and one phone miss', function () {
+        $emails = ['john@example.com', 'jane@example.com'];
+        $phones = ['+33628361721'];
+        $this->mailer
+            ->template('welcome')
+            ->email($emails)
+            ->phone($phones)
+            ->option('crm', '123456');
+
+        $mockHttp = getMockHttp($this->mailer);
+        $mockHttp->setResponse(['status' => 'success'], 200);
+
+        $result = $this->mailer->send();
+
+        expect($result)->toBeString();
+        
+        $url = $mockHttp->getLastUrl();
+        $payload = $mockHttp->getLastPayload();
+
+        expect($url)->toContain('/send/list');
+        expect($payload)->toBeArray();
+        foreach ($payload as $key => $value) {
+            expect($value['email'])->toBe($emails[$key]);
+            if ($key == 1) {
+                expect($value)->not->toHaveKey('phone');
+            } else {
+                expect($value['phone'])->toBe($phones[$key]);
+            }   
+            expect($value['options']['crm'])->toBe('123456');
+        }
     });
 });

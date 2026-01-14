@@ -21,8 +21,8 @@ class MailerClient
     private HttpClientInterface $httpClient;
 
     private ?string $template = null;
-    private ?string $firstName = null;
-    private ?string $lastName = null;
+    private string|array|null $firstName = null;
+    private string|array|null $lastName = null;
     private string|array|null $email = null;
     private string|array|null $phone = null;
     private ?string $scenario = null;

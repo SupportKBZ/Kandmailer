@@ -61,9 +61,9 @@ trait GetDatas
     /**
      * Get the first name.
      * 
-     * @return ?string
+     * @return string|array|null
      */
-    public function getFirstName(): ?string
+    public function getFirstName(): string|array|null
     {
         return $this->firstName;
     }
@@ -71,9 +71,9 @@ trait GetDatas
     /**
      * Get the last name.
      * 
-     * @return ?string
+     * @return string|array|null
      */
-    public function getLastName(): ?string
+    public function getLastName(): string|array|null
     {
         return $this->lastName;
     }
@@ -170,4 +170,3 @@ trait GetDatas
         return $this->httpClient;
     }
 }
-

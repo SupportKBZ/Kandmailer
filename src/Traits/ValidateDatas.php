@@ -6,7 +6,28 @@ namespace KandMailer\Traits;
 
 trait ValidateDatas
 {
-    
+    /**
+     * Validate email(s).
+     * 
+     * @param string|array<string> $emails
+     * @throws \InvalidArgumentException
+     */
+    private function validateEmails(string|array $emails): void
+    {
+        $this->validateRecipients($emails, 'email');
+    }
+
+    /**
+     * Validate phone(s).
+     * 
+     * @param string|array<string> $phones
+     * @throws \InvalidArgumentException
+     */
+    private function validatePhones(string|array $phones): void
+    {
+        $this->validateRecipients($phones, 'phone');
+    }
+
     /**
      * Validate that we have a single recipient (not multiple).
      *
@@ -30,45 +51,32 @@ trait ValidateDatas
     }
 
     /**
-     * Validate email(s).
+     * Generic validation for emails or phones.
      * 
-     * @param string|array<string> $emails
+     * @param string|array<string> $values
+     * @param string $type 'email' or 'phone'
      * @throws \InvalidArgumentException
      */
-    private function validateEmails(string|array $emails): void
+    private function validateRecipients(string|array $values, string $type): void
     {
-        $emailList = is_array($emails) ? $emails : [$emails];
+        $valueList = is_array($values) ? $values : [$values];
+        $emptyMessage = $type === 'email' ? 'L\'email ne peut pas être vide.' : 'Le numéro de téléphone ne peut pas être vide.';
         
-        foreach ($emailList as $email) {
-            if (!is_string($email) || empty(trim($email))) {
-                throw new \InvalidArgumentException('L\'email ne peut pas être vide.');
+        foreach ($valueList as $value) {
+            if (!is_string($value) || empty(trim($value))) {
+                throw new \InvalidArgumentException($emptyMessage);
             }
             
-            if (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
-                throw new \InvalidArgumentException("Email invalide: {$email}");
-            }
-        }
-    }
-
-    /**
-     * Validate phone(s).
-     * 
-     * @param string|array<string> $phones
-     * @throws \InvalidArgumentException
-     */
-    private function validatePhones(string|array $phones): void
-    {
-        $phoneList = is_array($phones) ? $phones : [$phones];
-        
-        foreach ($phoneList as $phone) {
-            if (!is_string($phone) || empty(trim($phone))) {
-                throw new \InvalidArgumentException('Le numéro de téléphone ne peut pas être vide.');
-            }
-            
-            // Format basique: doit contenir au moins 8 chiffres
-            $digits = preg_replace('/\D/', '', $phone);
-            if (strlen($digits) < 8) {
-                throw new \InvalidArgumentException("Numéro de téléphone invalide: {$phone}");
+            if ($type === 'email') {
+                if (!filter_var($value, FILTER_VALIDATE_EMAIL)) {
+                    throw new \InvalidArgumentException("Email invalide: {$value}");
+                }
+            } else {
+                // Format basique: doit contenir au moins 8 chiffres
+                $digits = preg_replace('/\D/', '', $value);
+                if (strlen($digits) < 8) {
+                    throw new \InvalidArgumentException("Numéro de téléphone invalide: {$value}");
+                }
             }
         }
     }

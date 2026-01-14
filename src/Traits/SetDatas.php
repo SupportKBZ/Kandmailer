@@ -48,6 +48,30 @@ trait SetDatas
     }
 
     /**
+     * Set the recipient to a firstName.
+     * 
+     * @param string $firstName
+     * @return self
+     * @throws \InvalidArgumentException If phone is invalid
+     */
+    public function toFirstName(string|array $firstName): self
+    {
+        $this->firstName = is_array($firstName) ? $firstName : $firstName;
+        return $this;
+    }
+
+    /**
+     * Set the recipient to a lastName.
+     * 
+     * @return self
+     */
+    public function toLastName(string|array $lastName): self
+    {
+        $this->lastName = is_array($lastName) ? $lastName : $lastName;
+        return $this;
+    }
+
+    /**
      * Set the email (alias for toEmail, kept for compatibility).
      * 
      * @return self
@@ -74,10 +98,9 @@ trait SetDatas
      * 
      * @return self
      */
-    public function firstName(string $firstName): self
+    public function firstName(string|array $firstName): self
     {
-        $this->firstName = $firstName;
-        return $this;
+        return $this->toFirstName($firstName);
     }
 
     /**
@@ -85,10 +108,9 @@ trait SetDatas
      * 
      * @return self
      */
-    public function lastName(string $lastName): self
+    public function lastName(string|array $lastName): self
     {
-        $this->lastName = $lastName;
-        return $this;
+        return $this->toLastName($lastName);
     }
 
     /**
@@ -207,4 +229,3 @@ trait SetDatas
         return $this;
     }
 }
-
