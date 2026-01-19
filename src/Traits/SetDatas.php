@@ -167,6 +167,17 @@ trait SetDatas
     }
 
     /**
+     * Set multiple options for sendMultiple.
+     *
+     * @param array<int,array<string,mixed>> $options
+     */
+    public function multiOptions(array $options): self
+    {
+        $this->multiOptions = $options;
+        return $this;
+    }
+
+    /**
      * Add a file.
      */
     public function file(string $label, string $publicId, string $secretId): self
@@ -222,6 +233,7 @@ trait SetDatas
         $this->accountId = null;
         $this->createdAt = null;
         $this->options = [];
+        $this->multiOptions = [];
         $this->files = [];
         $this->remove = [];
         $this->exists = [];

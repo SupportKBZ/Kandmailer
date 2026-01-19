@@ -12,142 +12,174 @@ use KandMailer\Models\RecipientData;
 
 class Makers
 {
+    public function __construct(
+        private readonly MailerClient $client,
+        private readonly ?string $method = null,
+        private readonly ?string $path = null
+    ) {}
+
     /**
-     * Send a message.
+     * Send a request for a single recipient.
      *
      * @throws RuntimeException When the API responds with an error or invalid JSON.
      *
      * @return string The successful API response body.
      */
-    public static function request(
-        MailerClient $client,
-        string $method,
-        string $path
-    ): string
+    public static function requestSingle(MailerClient $client, string $path, string $method = 'POST'): string
     {
-        $url = $client->getEndpoint() . $path;
-
-        $headers = [
-            'Authorization: Bearer ' . $client->getApiKey(),
-            'Content-Type: application/json',
-        ];
-
-        $body = json_encode(self::toPayload($client, str_contains($path, '/send/list')), JSON_THROW_ON_ERROR);
-
-        $response = $client->getHttpClient()->request($method, $url, $headers, $body);
-
-        if (!$response->isSuccessful()) {
-            throw new RuntimeException(
-                'API error, code ' . $response->getStatusCode() . ': ' . $response->getBody()
-            );
-        }
-
-        return $response->getBody();
+        return (new self($client, $method, $path))->executeSingle();
     }
 
     /**
-     * Build the payload(s) for a request.
+     * Send a request for multiple recipients.
      *
-     * @param bool $multiple If true, returns an array of payloads for multiple recipients
-     * @return array<string,mixed>|array<int,array<string,mixed>>
+     * @throws RuntimeException When the API responds with an error or invalid JSON.
+     *
+     * @return string The successful API response body.
      */
-    public static function toPayload(MailerClient $client, bool $isMultiple = false): array
+    public static function requestMultiple(MailerClient $client, string $path, string $method = 'POST'): string
     {
-        // For multiple recipients, create an array of payloads
-        if ($isMultiple) {
-            // Convert all fields to arrays and determine the max length
-            $emails = is_array($client->getEmail()) ? $client->getEmail() : [$client->getEmail()];
-            $phones = is_array($client->getPhone()) ? $client->getPhone() : [$client->getPhone()];
-            $firstNames = is_array($client->getFirstName()) ? $client->getFirstName() : [$client->getFirstName()];
-            $lastNames = is_array($client->getLastName()) ? $client->getLastName() : [$client->getLastName()];
-            
-            // Determine the maximum count to iterate
-            $maxCount = max(count($emails), count($phones), count($firstNames), count($lastNames));
-            
-            // Build recipients by "zipping" arrays together
-            $recipients = [];
-            for ($i = 0; $i < $maxCount; $i++) {
-                $recipients[] = [
-                    'email' => $emails[$i] ?? null,
-                    'phone' => $phones[$i] ?? null,
-                    'firstName' => $firstNames[$i] ?? null,
-                    'lastName' => $lastNames[$i] ?? null,
-                ];
-            }
-
-            $payloads = [];
-            foreach ($recipients as $recipient) {
-                $payloads[] = self::buildSinglePayload(
-                    $client, 
-                    RecipientData::from($recipient),
-                    true  // Use provided values only, no fallback
-                );
-            }
-
-            return $payloads;
-        }
-
-        // For single recipient, return a single payload
-        return self::buildSinglePayload(
-            $client, 
-            RecipientData::from($client)
-        );
+        return (new self($client, $method, $path))->executeMultiple();
     }
 
     /**
-     * Build a single payload.
+     * Execute request for a single recipient.
      *
-     * @param bool $useProvidedValues If true, only use provided values without fallback to client
+     * @throws RuntimeException When the API responds with an error or invalid JSON.
+     *
+     * @return string The successful API response body.
+     */
+    public function executeSingle(): string
+    {
+        return $this->executeRequest($this->buildPayloadSingle());
+    }
+
+    /**
+     * Execute request for multiple recipients.
+     *
+     * @throws RuntimeException When the API responds with an error or invalid JSON.
+     *
+     * @return string The successful API response body.
+     */
+    public function executeMultiple(): string
+    {
+        return $this->executeRequest($this->buildMultiplePayload());
+    }
+
+    /**
+     * Build payload for a single recipient.
+     *
      * @return array<string,mixed>
      */
-    private static function buildSinglePayload(
-        MailerClient $client, 
+    public function buildPayloadSingle(): array
+    {
+        $recipient = RecipientData::from($this->client);
+        $payload = [];
+
+        $this->addIfSet($payload, 'template', $this->client->getTemplate());
+        $this->addIfSet($payload, 'firstName', $recipient->firstName ?? $this->client->getFirstName());
+        $this->addIfSet($payload, 'lastName', $recipient->lastName ?? $this->client->getLastName());
+        $this->addIfSet($payload, 'email', $recipient->email);
+        $this->addIfSet($payload, 'phone', $recipient->phone);
+        $this->addIfSet($payload, 'scenario', $this->client->getScenario());
+        $this->addIfSet($payload, 'account_id', $this->client->getAccountId());
+
+        if ($this->client->getCreatedAt() !== null) {
+            $payload['created_at'] = $this->client->getCreatedAt()->format(\DateTimeInterface::ATOM);
+        }
+
+        if (!empty($this->client->getOptions())) {
+            $payload['options'] = $this->client->getOptions();
+        }
+
+        if (!empty($this->client->getFiles())) {
+            $payload['files'] = array_map(fn(File $f) => $f->toArray(), $this->client->getFiles());
+        }
+
+        if (!empty($this->client->getRemove())) {
+            $payload['remove'] = $this->client->getRemove();
+        }
+
+        if (!empty($this->client->getExists())) {
+            $payload['exists'] = $this->client->getExists();
+        }
+
+        return $payload;
+    }
+
+    /**
+     * Build payload for multiple recipients.
+     *
+     * @return array<int,array<string,mixed>>
+     */
+    public function buildMultiplePayload(): array
+    {
+        $emails = is_array($this->client->getEmail()) ? $this->client->getEmail() : [$this->client->getEmail()];
+        $phones = is_array($this->client->getPhone()) ? $this->client->getPhone() : [$this->client->getPhone()];
+        $firstNames = is_array($this->client->getFirstName()) ? $this->client->getFirstName() : [$this->client->getFirstName()];
+        $lastNames = is_array($this->client->getLastName()) ? $this->client->getLastName() : [$this->client->getLastName()];
+        $multiOptions = $this->client->getMultiOptions();
+        
+        $maxCount = max(count($emails), count($phones), count($firstNames), count($lastNames));
+        
+        $payloads = [];
+        for ($i = 0; $i < $maxCount; $i++) {
+            $recipient = RecipientData::from([
+                'email' => $emails[$i] ?? null,
+                'phone' => $phones[$i] ?? null,
+                'firstName' => $firstNames[$i] ?? null,
+                'lastName' => $lastNames[$i] ?? null,
+            ]);
+            
+            $options = !empty($multiOptions) ? ($multiOptions[$i] ?? null) : null;
+            
+            $payloads[] = $this->buildMultipleItemPayload($recipient, $options);
+        }
+
+        return $payloads;
+    }
+
+    /**
+     * Build payload for a single item in a multiple send.
+     *
+     * @param array<string,mixed>|null $recipientOptions
+     * @return array<string,mixed>
+     */
+    private function buildMultipleItemPayload(
         RecipientData $recipient,
-        bool $useProvidedValues = false
+        ?array $recipientOptions
     ): array
     {
         $payload = [];
 
-        // Simple fields
-        self::addIfSet($payload, 'template', $client->getTemplate());
-        
-        // For multiple recipients, use only provided values (no fallback)
-        if ($useProvidedValues) {
-            self::addIfSet($payload, 'firstName', $recipient->firstName);
-            self::addIfSet($payload, 'lastName', $recipient->lastName);
-        } else {
-            // For single recipient, fallback to client values if not provided
-            self::addIfSet($payload, 'firstName', $recipient->firstName ?? $client->getFirstName());
-            self::addIfSet($payload, 'lastName', $recipient->lastName ?? $client->getLastName());
-        }
-        
-        self::addIfSet($payload, 'email', $recipient->email);
-        self::addIfSet($payload, 'phone', $recipient->phone);
-        self::addIfSet($payload, 'scenario', $client->getScenario());
-        self::addIfSet($payload, 'account_id', $client->getAccountId());
+        $this->addIfSet($payload, 'template', $this->client->getTemplate());
+        $this->addIfSet($payload, 'firstName', $recipient->firstName);
+        $this->addIfSet($payload, 'lastName', $recipient->lastName);
+        $this->addIfSet($payload, 'email', $recipient->email);
+        $this->addIfSet($payload, 'phone', $recipient->phone);
+        $this->addIfSet($payload, 'scenario', $this->client->getScenario());
+        $this->addIfSet($payload, 'account_id', $this->client->getAccountId());
 
-        // Date
-        if ($client->getCreatedAt() !== null) {
-            $payload['created_at'] = $client->getCreatedAt()->format(\DateTimeInterface::ATOM);
+        if ($this->client->getCreatedAt() !== null) {
+            $payload['created_at'] = $this->client->getCreatedAt()->format(\DateTimeInterface::ATOM);
         }
 
-        // Options (only if not empty)
-        if (!empty($client->getOptions())) {
-            $payload['options'] = $client->getOptions();
+        if ($recipientOptions !== null && !empty($recipientOptions)) {
+            $payload['options'] = $recipientOptions;
+        } elseif (!empty($this->client->getOptions())) {
+            $payload['options'] = $this->client->getOptions();
         }
 
-        // Files (only if not empty)
-        if (!empty($client->getFiles())) {
-            $payload['files'] = array_map(fn(File $f) => $f->toArray(), $client->getFiles());
+        if (!empty($this->client->getFiles())) {
+            $payload['files'] = array_map(fn(File $f) => $f->toArray(), $this->client->getFiles());
         }
 
-        // Arrays (only if not empty)
-        if (!empty($client->getRemove())) {
-            $payload['remove'] = $client->getRemove();
+        if (!empty($this->client->getRemove())) {
+            $payload['remove'] = $this->client->getRemove();
         }
 
-        if (!empty($client->getExists())) {
-            $payload['exists'] = $client->getExists();
+        if (!empty($this->client->getExists())) {
+            $payload['exists'] = $this->client->getExists();
         }
 
         return $payload;
@@ -156,10 +188,42 @@ class Makers
     /**
      * Add a value to the payload if it is set.
      */
-    public static function addIfSet(array &$payload, string $key, mixed $value): void
+    private function addIfSet(array &$payload, string $key, mixed $value): void
     {
         if ($value !== null) {
             $payload[$key] = $value;
         }
+    }
+
+    /**
+     * Execute the HTTP request.
+     *
+     * @param array<string,mixed>|array<int,array<string,mixed>> $payload
+     * @throws RuntimeException When the API responds with an error or invalid JSON.
+     *
+     * @return string The successful API response body.
+     */
+    private function executeRequest(
+        array $payload
+    ): string
+    {
+        $url = $this->client->getEndpoint() . $this->path;
+
+        $headers = [
+            'Authorization: Bearer ' . $this->client->getApiKey(),
+            'Content-Type: application/json',
+        ];
+
+        $body = json_encode($payload, JSON_THROW_ON_ERROR);
+
+        $response = $this->client->getHttpClient()->request($this->method, $url, $headers, $body);
+
+        if (!$response->isSuccessful()) {
+            throw new RuntimeException(
+                'API error, code ' . $response->getStatusCode() . ': ' . $response->getBody()
+            );
+        }
+
+        return $response->getBody();
     }
 }

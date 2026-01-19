@@ -131,6 +131,16 @@ trait GetDatas
     }
 
     /**
+     * Get multiple options.
+     *
+     * @return array<int,array<string,mixed>>
+     */
+    public function getMultiOptions(): array
+    {
+        return $this->multiOptions;
+    }
+
+    /**
      * Get all files.
      *
      * @return array<File>
@@ -168,5 +178,27 @@ trait GetDatas
     public function getHttpClient(): HttpClientInterface
     {
         return $this->httpClient;
+    }
+
+    /**
+     * Get the payload for a single recipient.
+     *
+     * @return array<string,mixed>
+     */
+    public function getPayload(): array
+    {
+        $maker = new \KandMailer\Helpers\Makers($this);
+        return $maker->buildPayloadSingle();
+    }
+
+    /**
+     * Get the payload for multiple recipients.
+     *
+     * @return array<int,array<string,mixed>>
+     */
+    public function getPayloadMultiple(): array
+    {
+        $maker = new \KandMailer\Helpers\Makers($this);
+        return $maker->buildMultiplePayload();
     }
 }

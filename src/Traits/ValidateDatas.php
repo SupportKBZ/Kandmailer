@@ -51,6 +51,21 @@ trait ValidateDatas
     }
 
     /**
+     * Validate that multiOptions is not used with single recipient methods.
+     *
+     * @throws \InvalidArgumentException If multiOptions is set
+     */
+    private function validateNoMultiOptions(): void
+    {
+        if (!empty($this->multiOptions)) {
+            throw new \InvalidArgumentException(
+                'multiOptions() ne peut être utilisé qu\'avec sendMultiple(). ' .
+                'Pour sendSingle(), utilisez option() ou options().'
+            );
+        }
+    }
+
+    /**
      * Generic validation for emails or phones.
      * 
      * @param string|array<string> $values

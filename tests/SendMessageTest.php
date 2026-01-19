@@ -29,7 +29,7 @@ describe('Send Message', function () {
         $mockHttp = getMockHttp($this->mailer);
         $mockHttp->setResponse(['message' => 'Invalid phone format'], 422);
 
-        expect(fn() => $this->mailer->send())->toThrow(RuntimeException::class);
+        expect(fn() => $this->mailer->sendSingle())->toThrow(RuntimeException::class);
         
         $payload = $mockHttp->getLastPayload();
         expect($payload['phone'])->toBe('12345678');
@@ -43,7 +43,7 @@ describe('Send Message', function () {
         $mockHttp = getMockHttp($this->mailer);
         $mockHttp->setResponse(['status' => 'success'], 200);
 
-        $this->mailer->send();
+        $this->mailer->sendSingle();
         
         $payload = $mockHttp->getLastPayload();
         expect($payload['phone'])->toBe('+33628361721');
@@ -58,7 +58,7 @@ describe('Send Message', function () {
         $mockHttp = getMockHttp($this->mailer);
         $mockHttp->setResponse(['status' => 'success'], 200);
 
-        $this->mailer->send();
+        $this->mailer->sendMultiple();
         
         $payload = $mockHttp->getLastPayload();
         expect($payload)->toBeArray();
@@ -78,7 +78,7 @@ describe('Send Message', function () {
         $mockHttp = getMockHttp($this->mailer);
         $mockHttp->setResponse(['status' => 'success'], 200);
 
-        $result = $this->mailer->send();
+        $result = $this->mailer->sendSingle();
 
         expect($result)->toBeString();
         $result = json_decode($result, true);
@@ -105,7 +105,7 @@ describe('Send Message', function () {
         $mockHttp = getMockHttp($this->mailer);
         $mockHttp->setResponse(['status' => 'success'], 200);
 
-        $result = $this->mailer->send();
+        $result = $this->mailer->sendMultiple();
 
         expect($result)->toBeString();
         
@@ -134,7 +134,7 @@ describe('Send Message', function () {
         $mockHttp = getMockHttp($this->mailer);
         $mockHttp->setResponse(['status' => 'success'], 200);
 
-        $result = $this->mailer->send();
+        $result = $this->mailer->sendMultiple();
 
         expect($result)->toBeString();
         
@@ -164,7 +164,7 @@ describe('Send Message', function () {
         $mockHttp = getMockHttp($this->mailer);
         $mockHttp->setResponse(['status' => 'success'], 200);
 
-        $result = $this->mailer->send();
+        $result = $this->mailer->sendMultiple();
 
         expect($result)->toBeString();
         
@@ -197,7 +197,7 @@ describe('Send Message', function () {
         $mockHttp = getMockHttp($this->mailer);
         $mockHttp->setResponse(['status' => 'success'], 200);
 
-        $result = $this->mailer->send();
+        $result = $this->mailer->sendMultiple();
 
         expect($result)->toBeString();
         
@@ -225,7 +225,7 @@ describe('Send Message', function () {
         $mockHttp = getMockHttp($this->mailer);
         $mockHttp->setResponse(['status' => 'success'], 200);
 
-        $result = $this->mailer->send();
+        $result = $this->mailer->sendMultiple();
 
         expect($result)->toBeString();
         
@@ -243,5 +243,79 @@ describe('Send Message', function () {
             }   
             expect($value['options']['crm'])->toBe('123456');
         }
+    });
+
+    it('Send multiple emails with multiOptions', function () {
+        $emails = ['1@one.com', '2@two.com'];
+        $this->mailer
+            ->template('kbis-0')
+            ->email($emails)
+            ->multiOptions([
+                ['opt' => '1'],
+                ['opt' => '2']
+            ]);
+
+        $mockHttp = getMockHttp($this->mailer);
+        $mockHttp->setResponse(['status' => 'success'], 200);
+
+        $result = $this->mailer->sendMultiple();
+
+        expect($result)->toBeString();
+        
+        $url = $mockHttp->getLastUrl();
+        $payload = $mockHttp->getLastPayload();
+
+        expect($url)->toContain('/send/list');
+        expect($payload)->toBeArray();
+        expect($payload)->toHaveCount(2);
+        
+        expect($payload[0]['template'])->toBe('kbis-0');
+        expect($payload[0]['email'])->toBe('1@one.com');
+        expect($payload[0]['options']['opt'])->toBe('1');
+        
+        expect($payload[1]['template'])->toBe('kbis-0');
+        expect($payload[1]['email'])->toBe('2@two.com');
+        expect($payload[1]['options']['opt'])->toBe('2');
+    });
+
+    it('Send multiple emails with multiOptions and one option is missing', function () {
+        $emails = ['1@one.com', '2@two.com', '3@three.com'];
+        $this->mailer
+            ->template('kbis-0')
+            ->email($emails)
+            ->multiOptions([
+                ['opt' => '1'],
+                ['opt' => '2']
+            ]);
+
+        $mockHttp = getMockHttp($this->mailer);
+        $mockHttp->setResponse(['status' => 'success'], 200);
+
+        $result = $this->mailer->sendMultiple();
+
+        expect($result)->toBeString();
+        
+        $url = $mockHttp->getLastUrl();
+        $payload = $mockHttp->getLastPayload();
+
+        expect($url)->toContain('/send/list');
+        expect($payload)->toBeArray();
+        expect($payload)->toHaveCount(3);
+
+        expect($payload[0]['options']['opt'])->toBe('1');
+        expect($payload[1]['options']['opt'])->toBe('2');
+        expect($payload[2])->not->toHaveKey('options');
+    });
+
+    it('Throw error when using multiOptions with sendSingle', function () {
+        expect(fn() => $this->mailer
+            ->template('welcome')
+            ->email('test@example.com')
+            ->multiOptions([['opt' => '1']])
+            ->sendSingle()
+        )->toThrow(
+            InvalidArgumentException::class,
+            'multiOptions() ne peut être utilisé qu\'avec sendMultiple()'
+        );
     });
 });

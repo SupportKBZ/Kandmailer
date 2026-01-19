@@ -32,6 +32,9 @@ class MailerClient
     /** @var array<string,mixed> */
     private array $options = [];
 
+    /** @var array<int,array<string,mixed>> */
+    private array $multiOptions = [];
+
     /** @var array<File> */
     private array $files = [];
 
@@ -60,23 +63,29 @@ class MailerClient
     }
 
     /**
-     * Send a message.
+     * Send a message to a single recipient.
+     *
+     * @throws \InvalidArgumentException If multiOptions is used
+     * @throws \RuntimeException When the API responds with an error.
+     *
+     * @return string
+     */
+    public function sendSingle(): string
+    {
+        $this->validateNoMultiOptions();
+        return (new Makers($this, 'POST', '/send/single'))->executeSingle();
+    }
+
+    /**
+     * Send a message to multiple recipients.
      *
      * @throws \RuntimeException When the API responds with an error.
      *
      * @return string
      */
-    public function send(): string
+    public function sendMultiple(): string
     {
-        // Check if we have multiple recipients
-        $hasMultiple = (is_array($this->email) && count($this->email) > 1) 
-                    || (is_array($this->phone) && count($this->phone) > 1);
-
-        if ($hasMultiple) {
-            return Makers::request($this, 'POST', '/send/list');
-        }
-
-        return Makers::request($this, 'POST', '/send/single');
+        return (new Makers($this, 'POST', '/send/list'))->executeMultiple();
     }
 
     /**
@@ -91,7 +100,7 @@ class MailerClient
     {
         $this->validateSingleRecipient('add');
 
-        return Makers::request($this, 'POST', '/contact/add');
+        return (new Makers($this, 'POST', '/contact/add'))->executeSingle();
     }
 
     /**
@@ -106,6 +115,6 @@ class MailerClient
     {
         $this->validateSingleRecipient('remove');
 
-        return Makers::request($this, 'POST', '/contact/remove');
+        return (new Makers($this, 'POST', '/contact/remove'))->executeSingle();
     }
 }

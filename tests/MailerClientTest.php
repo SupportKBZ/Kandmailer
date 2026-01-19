@@ -1,7 +1,6 @@
 <?php
 
 use KandMailer\MailerClient;
-use KandMailer\Helpers\Makers;
 
 beforeEach(function () {
     $this->mailer = createMailer();
@@ -138,7 +137,7 @@ describe('Payload', function () {
             ->toEmail('john@example.com')
             ->firstName('John');
 
-        $payload = Makers::toPayload($this->mailer);
+        $payload = $this->mailer->getPayload();
 
         expect($payload)->toHaveKey('template', 'welcome');
         expect($payload)->toHaveKey('firstName', 'John');
@@ -151,7 +150,7 @@ describe('Payload', function () {
         $date = new DateTime('2024-01-15T10:30:00+00:00');
         $this->mailer->createdAt($date);
 
-        $payload = Makers::toPayload($this->mailer);
+        $payload = $this->mailer->getPayload();
 
         expect($payload['created_at'])->toBe('2024-01-15T10:30:00+00:00');
     });
@@ -159,7 +158,7 @@ describe('Payload', function () {
     it('includes options when not empty', function () {
         $this->mailer->option('lang', 'fr');
 
-        $payload = Makers::toPayload($this->mailer);
+        $payload = $this->mailer->getPayload();
 
         expect($payload)->toHaveKey('options');
         expect($payload['options'])->toBe(['lang' => 'fr']);
