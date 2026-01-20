@@ -1,5 +1,9 @@
 # KandMailer PHP
 
+![PHP Version](https://img.shields.io/badge/PHP-8.4%2B-blue)
+![License](https://img.shields.io/badge/license-MIT-green)
+![Tests](https://img.shields.io/badge/tests-Pest-orange)
+
 Client PHP léger pour KandMailer
 
 ## Installation
@@ -21,6 +25,9 @@ $client = new MailerClient('your_api_key', 'https://exemple.com');
 ### Tips
 #### Send
 ```php
+// Set template (required for sending messages)
+$client->template('welcome_email');
+
 // Set single
 $client->email('john@example.com');
 $client->phone('+33612345678');
@@ -28,17 +35,38 @@ $client->option('lang', 'en');
 
 // Set multiple
 $client->email(['john@example.com', 'jane@example.com']);
-$client->email(['+33612345678', '+33612345679']);
+$client->phone(['+33612345678', '+33612345679']);
 $client->firstName(['John', 'Jane']);
 $client->lastName(['Doe', 'White']);
-$client->options(['lang' => 'en', 'priority' => 'high']);
+$client->multiOptions([['lang' => 'en', 'priority' => 'high'],['lang' => 'fr', 'priority' => 'low']]);
 
 // Call
-$client->send();
+$client->sendMultiple();
 
 // Chaining
-$client->email('john@example.com')->options(['lang' => 'en', 'priority' => 'high'])->send();
+$client->template('welcome_email')
+       ->email('john@example.com')
+       ->options(['lang' => 'en', 'priority' => 'high'])
+       ->sendSingle();
 ```
+
+> **⚠️ Important : Gestion des options**
+> 
+> - **`options()`** : À utiliser avec `sendSingle()` pour définir les options d'un seul destinataire
+> - **`multiOptions()`** : À utiliser exclusivement avec `sendMultiple()` pour définir des options spécifiques à chaque destinataire
+> 
+> ❌ **Ne pas faire** : `$client->multiOptions([...])->sendSingle()` - Cela générera une erreur
+> 
+> ✅ **Correct** :
+> ```php
+> // Pour un envoi unique
+> $client->email('john@example.com')->options(['lang' => 'en'])->sendSingle();
+> 
+> // Pour plusieurs envois avec options différentes
+> $client->email(['john@example.com', 'jane@example.com'])
+>        ->multiOptions([['lang' => 'en'], ['lang' => 'fr']])
+>        ->sendMultiple();
+> ```
 
 #### Add
 ```php
@@ -81,6 +109,48 @@ $client->remove();
 
 // Chaining
 $client->scenario('welcome_scenario')->email('john@example.com')->remove();
+```
+
+#### Méthodes avancées
+
+##### Reset - Réutiliser le client
+```php
+// Envoyer à plusieurs destinataires avec la même instance
+$client->template('newsletter')
+       ->email('john@example.com')
+       ->options(['lang' => 'en'])
+       ->sendSingle();
+
+// Réinitialiser pour un nouvel envoi
+$client->reset();
+
+$client->template('newsletter')
+       ->email('jane@example.com')
+       ->options(['lang' => 'fr'])
+       ->sendSingle();
+```
+
+##### CreatedAt - Définir une date personnalisée
+```php
+// Définir une date de création pour le contact
+$client->scenario('welcome')
+       ->email('john@example.com')
+       ->createdAt(new \DateTime('2024-01-15'))
+       ->add();
+
+// Avec DateTimeImmutable
+$client->scenario('welcome')
+       ->email('jane@example.com')
+       ->createdAt(new \DateTimeImmutable('2024-01-15 10:30:00'))
+       ->add();
+```
+
+### Tests
+Ce package inclut une suite de tests complète utilisant Pest.
+
+```bash
+# Lancer tous les tests
+composer test
 ```
 
 ### Exigences
