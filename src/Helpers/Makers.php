@@ -9,9 +9,17 @@ use RuntimeException;
 use KandMailer\MailerClient;
 use KandMailer\Models\File;
 use KandMailer\Models\RecipientData;
+use KandMailer\Models\Recipient;
 
 class Makers
 {
+    /**
+     * Constructor.
+     *
+     * @param MailerClient $client The client.
+     * @param string|null $method The method.
+     * @param string|null $path The path.
+     */
     public function __construct(
         private readonly MailerClient $client,
         private readonly ?string $method = null,
@@ -67,6 +75,31 @@ class Makers
     }
 
     /**
+     * Execute request for a single recipient using a Recipient object.
+     *
+     * @throws RuntimeException When the API responds with an error or invalid JSON.
+     *
+     * @return string The successful API response body.
+     */
+    public function executeWithRecipient(Recipient $recipient): string
+    {
+        return $this->executeRequest($this->buildPayloadFromRecipient($recipient));
+    }
+
+    /**
+     * Execute request for multiple recipients using Recipient objects.
+     *
+     * @param array<Recipient> $recipients
+     * @throws RuntimeException When the API responds with an error or invalid JSON.
+     *
+     * @return string The successful API response body.
+     */
+    public function executeWithRecipients(array $recipients): string
+    {
+        return $this->executeRequest($this->buildPayloadFromRecipients($recipients));
+    }
+
+    /**
      * Build payload for a single recipient.
      *
      * @return array<string,mixed>
@@ -74,37 +107,13 @@ class Makers
     public function buildPayloadSingle(): array
     {
         $recipient = RecipientData::from($this->client);
-        $payload = [];
-
-        $this->addIfSet($payload, 'template', $this->client->getTemplate());
-        $this->addIfSet($payload, 'firstName', $recipient->firstName ?? $this->client->getFirstName());
-        $this->addIfSet($payload, 'lastName', $recipient->lastName ?? $this->client->getLastName());
-        $this->addIfSet($payload, 'email', $recipient->email);
-        $this->addIfSet($payload, 'phone', $recipient->phone);
-        $this->addIfSet($payload, 'scenario', $this->client->getScenario());
-        $this->addIfSet($payload, 'account_id', $this->client->getAccountId());
-
-        if ($this->client->getCreatedAt() !== null) {
-            $payload['created_at'] = $this->client->getCreatedAt()->format(\DateTimeInterface::ATOM);
-        }
-
-        if (!empty($this->client->getOptions())) {
-            $payload['options'] = $this->client->getOptions();
-        }
-
-        if (!empty($this->client->getFiles())) {
-            $payload['files'] = array_map(fn(File $f) => $f->toArray(), $this->client->getFiles());
-        }
-
-        if (!empty($this->client->getRemove())) {
-            $payload['remove'] = $this->client->getRemove();
-        }
-
-        if (!empty($this->client->getExists())) {
-            $payload['exists'] = $this->client->getExists();
-        }
-
-        return $payload;
+        
+        return $this->buildBasePayload(
+            $recipient->email,
+            $recipient->phone,
+            $recipient->firstName ?? $this->client->getFirstName(),
+            $recipient->lastName ?? $this->client->getLastName()
+        );
     }
 
     /**
@@ -150,24 +159,86 @@ class Makers
         ?array $recipientOptions
     ): array
     {
+        return $this->buildBasePayload(
+            $recipient->email,
+            $recipient->phone,
+            $recipient->firstName,
+            $recipient->lastName,
+            null,
+            null,
+            null,
+            $recipientOptions
+        );
+    }
+
+    /**
+     * Build payload from a Recipient object.
+     *
+     * @return array<string,mixed>
+     */
+    private function buildPayloadFromRecipient(Recipient $recipient): array
+    {
+        return $this->buildBasePayload(
+            $recipient->email,
+            $recipient->phone,
+            $recipient->firstName,
+            $recipient->lastName,
+            $recipient->scenario,
+            $recipient->accountId,
+            $recipient->createdAt,
+            array_merge($this->client->getOptions(), $recipient->options)
+        );
+    }
+
+    /**
+     * Build payload from multiple Recipient objects.
+     *
+     * @param array<Recipient> $recipients
+     * @return array<int,array<string,mixed>>
+     */
+    private function buildPayloadFromRecipients(array $recipients): array
+    {
+        return array_map(
+            fn(Recipient $recipient) => $this->buildPayloadFromRecipient($recipient),
+            $recipients
+        );
+    }
+
+    /**
+     * Build base payload with common fields.
+     *
+     * @param array<string,mixed>|null $customOptions
+     * @return array<string,mixed>
+     */
+    private function buildBasePayload(
+        ?string $email = null,
+        ?string $phone = null,
+        ?string $firstName = null,
+        ?string $lastName = null,
+        ?string $scenario = null,
+        ?string $accountId = null,
+        ?\DateTimeInterface $createdAt = null,
+        ?array $customOptions = null
+    ): array
+    {
         $payload = [];
 
         $this->addIfSet($payload, 'template', $this->client->getTemplate());
-        $this->addIfSet($payload, 'firstName', $recipient->firstName);
-        $this->addIfSet($payload, 'lastName', $recipient->lastName);
-        $this->addIfSet($payload, 'email', $recipient->email);
-        $this->addIfSet($payload, 'phone', $recipient->phone);
-        $this->addIfSet($payload, 'scenario', $this->client->getScenario());
-        $this->addIfSet($payload, 'account_id', $this->client->getAccountId());
+        $this->addIfSet($payload, 'firstName', $firstName);
+        $this->addIfSet($payload, 'lastName', $lastName);
+        $this->addIfSet($payload, 'email', $email);
+        $this->addIfSet($payload, 'phone', $phone);
+        $this->addIfSet($payload, 'scenario', $scenario ?? $this->client->getScenario());
+        $this->addIfSet($payload, 'account_id', $accountId ?? $this->client->getAccountId());
 
-        if ($this->client->getCreatedAt() !== null) {
-            $payload['created_at'] = $this->client->getCreatedAt()->format(\DateTimeInterface::ATOM);
+        $finalCreatedAt = $createdAt ?? $this->client->getCreatedAt();
+        if ($finalCreatedAt !== null) {
+            $payload['created_at'] = $finalCreatedAt->format(\DateTimeInterface::ATOM);
         }
 
-        if ($recipientOptions !== null && !empty($recipientOptions)) {
-            $payload['options'] = $recipientOptions;
-        } elseif (!empty($this->client->getOptions())) {
-            $payload['options'] = $this->client->getOptions();
+        $options = $customOptions ?? $this->client->getOptions();
+        if (!empty($options)) {
+            $payload['options'] = $options;
         }
 
         if (!empty($this->client->getFiles())) {

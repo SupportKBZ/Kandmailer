@@ -23,52 +23,69 @@ $client = new MailerClient('your_api_key', 'https://exemple.com');
 ```
 
 ### Tips
-#### Send
+
+#### Send - Envoi de messages
+
+Utilisez des objets `Recipient` pour une meilleure flexibilité et type-safety :
+
 ```php
-// Set template (required for sending messages)
-$client->template('welcome_email');
+use KandMailer\Models\Recipient;
 
-// Set single
-$client->email('john@example.com');
-$client->phone('+33612345678');
-$client->option('lang', 'en');
-
-// Set multiple
-$client->email(['john@example.com', 'jane@example.com']);
-$client->phone(['+33612345678', '+33612345679']);
-$client->firstName(['John', 'Jane']);
-$client->lastName(['Doe', 'White']);
-$client->multiOptions([['lang' => 'en', 'priority' => 'high'],['lang' => 'fr', 'priority' => 'low']]);
-
-// Call
-$client->sendMultiple();
-
-// Chaining
+// Envoi simple
 $client->template('welcome_email')
-       ->email('john@example.com')
-       ->options(['lang' => 'en', 'priority' => 'high'])
-       ->sendSingle();
+       ->sendTo(new Recipient(
+           email: 'john@example.com',
+           firstName: 'John',
+           lastName: 'Doe',
+           options: ['lang' => 'en', 'priority' => 'high']
+       ));
+
+// Envoi multiple avec des options différentes pour chaque destinataire
+$recipients = [
+    new Recipient(
+        email: 'john@example.com',
+        firstName: 'John',
+        options: ['lang' => 'en', 'crm' => '111']
+    ),
+    new Recipient(
+        email: 'jane@example.com',
+        firstName: 'Jane',
+        options: ['lang' => 'fr', 'crm' => '222']
+    ),
+    new Recipient(
+        phone: '+33612345678',
+        firstName: 'Bob',
+        options: ['lang' => 'en', 'crm' => '333']
+    ),
+];
+
+$client->template('welcome_email')
+       ->sendToMultiple($recipients);
 ```
 
-> **⚠️ Important : Gestion des options**
-> 
-> - **`options()`** : À utiliser avec `sendSingle()` pour définir les options d'un seul destinataire
-> - **`multiOptions()`** : À utiliser exclusivement avec `sendMultiple()` pour définir des options spécifiques à chaque destinataire
-> 
-> ❌ **Ne pas faire** : `$client->multiOptions([...])->sendSingle()` - Cela générera une erreur
-> 
-> ✅ **Correct** :
-> ```php
-> // Pour un envoi unique
-> $client->email('john@example.com')->options(['lang' => 'en'])->sendSingle();
-> 
-> // Pour plusieurs envois avec options différentes
-> $client->email(['john@example.com', 'jane@example.com'])
->        ->multiOptions([['lang' => 'en'], ['lang' => 'fr']])
->        ->sendMultiple();
-> ```
+**Avantages :**
+- ✅ Code clair et moins sujet aux erreurs
+- ✅ Chaque destinataire a ses propres options indépendantes
+- ✅ Validation automatique au niveau de chaque destinataire
+- ✅ Excellente compatibilité avec les IDE (autocomplétion)
 
-#### Add
+#### Add - Approche Orientée Objet (Recommandée) ✨
+
+```php
+use KandMailer\Models\Recipient;
+
+// Ajout d'un contact
+$client->addTo(new Recipient(
+    email: 'john@example.com',
+    firstName: 'John',
+    lastName: 'Doe',
+    scenario: 'welcome_sequence',
+    options: ['lang' => 'en', 'source' => 'website']
+));
+```
+
+#### Add - Approche Classique (Toujours supportée)
+
 ```php
 // Set value
 $client->scenario('welcome_scenario');
@@ -95,7 +112,18 @@ $client->scenario('welcome')
        ->add();
 ```
 
-#### Remove
+#### Remove - Approche Orientée Objet (Recommandée) ✨
+
+```php
+// Suppression d'un contact
+$client->removeFrom(new Recipient(
+    email: 'john@example.com',
+    scenario: 'welcome_sequence'
+));
+```
+
+#### Remove - Approche Classique (Toujours supportée)
+
 ```php
 // Set scenario (required) and email
 $client->scenario('welcome_scenario');
@@ -109,6 +137,56 @@ $client->remove();
 
 // Chaining
 $client->scenario('welcome_scenario')->email('john@example.com')->remove();
+```
+
+#### Objet Recipient - Propriétés disponibles
+
+```php
+use KandMailer\Models\Recipient;
+
+$recipient = new Recipient(
+    email: 'john@example.com',           // Email du destinataire (optionnel si phone fourni)
+    phone: '+33612345678',                // Téléphone du destinataire (optionnel si email fourni)
+    firstName: 'John',                    // Prénom (optionnel)
+    lastName: 'Doe',                      // Nom (optionnel)
+    options: [                            // Options personnalisées (optionnel)
+        'lang' => 'en',
+        'crm' => '123456',
+        'customField' => 'value'
+    ],
+    scenario: 'welcome',                  // Scénario spécifique (optionnel)
+    accountId: 'acc-123',                 // ID compte (optionnel)
+    createdAt: new \DateTime('2024-01-15') // Date de création (optionnel)
+);
+
+// Créer à partir d'un array
+$recipient = Recipient::fromArray([
+    'email' => 'john@example.com',
+    'firstName' => 'John',
+    'options' => ['lang' => 'en']
+]);
+
+// Convertir en array
+$array = $recipient->toArray();
+```
+
+**Priorité des valeurs :**
+- Les valeurs définies dans le `Recipient` ont la priorité sur celles du client
+- Les options sont fusionnées (options du `Recipient` > options du client)
+- Si le `Recipient` n'a pas de valeur, celle du client est utilisée
+
+```php
+// Exemple de fusion des options
+$client->template('welcome')
+       ->option('globalKey', 'globalValue')  // Option globale pour tous
+       ->option('lang', 'fr');               // Sera surchargé
+
+$client->sendTo(new Recipient(
+    email: 'john@example.com',
+    options: ['lang' => 'en', 'customKey' => 'customValue']
+));
+
+// Résultat : options = ['globalKey' => 'globalValue', 'lang' => 'en', 'customKey' => 'customValue']
 ```
 
 #### Méthodes avancées

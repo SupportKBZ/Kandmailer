@@ -9,6 +9,7 @@ use KandMailer\Http\CurlHttpClient;
 use KandMailer\Helpers\Makers;
 
 use KandMailer\Models\File;
+use KandMailer\Models\Recipient;
 
 class MailerClient
 {
@@ -116,5 +117,57 @@ class MailerClient
         $this->validateSingleRecipient('remove');
 
         return (new Makers($this, 'POST', '/contact/remove'))->executeSingle();
+    }
+
+    /**
+     * Send a message to a single recipient using a Recipient object.
+     *
+     * @param Recipient $recipient The recipient to send to
+     * @throws \RuntimeException When the API responds with an error.
+     *
+     * @return string
+     */
+    public function sendTo(Recipient $recipient): string
+    {
+        return (new Makers($this, 'POST', '/send/single'))->executeWithRecipient($recipient);
+    }
+
+    /**
+     * Send messages to multiple recipients using Recipient objects.
+     *
+     * @param array<Recipient> $recipients Array of recipients to send to
+     * @throws \RuntimeException When the API responds with an error.
+     *
+     * @return string
+     */
+    public function sendToMultiple(array $recipients): string
+    {
+        return (new Makers($this, 'POST', '/send/list'))->executeWithRecipients($recipients);
+    }
+
+    /**
+     * Add a contact using a Recipient object.
+     *
+     * @param Recipient $recipient The recipient to add
+     * @throws \RuntimeException When the API responds with an error.
+     *
+     * @return string
+     */
+    public function addTo(Recipient $recipient): string
+    {
+        return (new Makers($this, 'POST', '/contact/add'))->executeWithRecipient($recipient);
+    }
+
+    /**
+     * Remove a contact using a Recipient object.
+     *
+     * @param Recipient $recipient The recipient to remove
+     * @throws \RuntimeException When the API responds with an error.
+     *
+     * @return string
+     */
+    public function removeFrom(Recipient $recipient): string
+    {
+        return (new Makers($this, 'POST', '/contact/remove'))->executeWithRecipient($recipient);
     }
 }
