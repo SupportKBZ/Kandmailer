@@ -159,6 +159,19 @@ class MailerClient
     }
 
     /**
+     * Add multiple contacts using Recipient objects.
+     *
+     * @param array<Recipient> $recipients Array of recipients to add
+     * @throws \RuntimeException When the API responds with an error.
+     *
+     * @return string
+     */
+    public function addToMultiple(array $recipients): string
+    {
+        return (new Makers($this, 'POST', '/contact/add/list'))->executeWithRecipients($recipients);
+    }
+
+    /**
      * Remove a contact using a Recipient object.
      *
      * @param Recipient $recipient The recipient to remove
