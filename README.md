@@ -1,6 +1,6 @@
 # KandMailer PHP
 
-![PHP Version](https://img.shields.io/badge/PHP-8.4%2B-blue)
+![PHP Version](https://img.shields.io/badge/PHP-8.3%2B-blue)
 ![License](https://img.shields.io/badge/license-MIT-green)
 ![Tests](https://img.shields.io/badge/tests-Pest-orange)
 
@@ -138,7 +138,7 @@ $client->template('newsletter')
 ```
 
 ### Exigences
-- PHP 8.4+
+- PHP 8.3+
 - Extension `curl`
 
 ### Licence
